@@ -89,55 +89,19 @@ margin-top:5px;
 
 <div class="grid">
 
-<div class="card">
-<div class="label">IP</div>
-<div class="value" id="ip">--</div>
-</div>
+<div class="card"><div class="label">IP</div><div class="value" id="ip">--</div></div>
+<div class="card"><div class="label">Localização</div><div class="value" id="loc">--</div></div>
+<div class="card"><div class="label">Provedor</div><div class="value" id="isp">--</div></div>
 
-<div class="card">
-<div class="label">Localização</div>
-<div class="value" id="loc">--</div>
-</div>
+<div class="card"><div class="label">Dispositivo</div><div class="value" id="device">--</div></div>
+<div class="card"><div class="label">Sistema</div><div class="value" id="os">--</div></div>
+<div class="card"><div class="label">Tela</div><div class="value" id="screen">--</div></div>
 
-<div class="card">
-<div class="label">Provedor</div>
-<div class="value" id="isp">--</div>
-</div>
+<div class="card"><div class="label">Bateria</div><div class="value" id="battery">--</div></div>
+<div class="card"><div class="label">Idioma</div><div class="value" id="lang">--</div></div>
+<div class="card"><div class="label">Timezone</div><div class="value" id="tz">--</div></div>
 
-<div class="card">
-<div class="label">Dispositivo</div>
-<div class="value" id="device">--</div>
-</div>
-
-<div class="card">
-<div class="label">Sistema</div>
-<div class="value" id="os">--</div>
-</div>
-
-<div class="card">
-<div class="label">Tela</div>
-<div class="value" id="screen">--</div>
-</div>
-
-<div class="card">
-<div class="label">Bateria</div>
-<div class="value" id="battery">--</div>
-</div>
-
-<div class="card">
-<div class="label">Idioma</div>
-<div class="value" id="lang">--</div>
-</div>
-
-<div class="card">
-<div class="label">Timezone</div>
-<div class="value" id="tz">--</div>
-</div>
-
-<div class="card">
-<div class="label">User Agent</div>
-<div class="value small" id="ua"></div>
-</div>
+<div class="card"><div class="label">User Agent</div><div class="value small" id="ua"></div></div>
 
 </div>
 
@@ -149,18 +113,19 @@ margin-top:5px;
 const ua = navigator.userAgent;
 document.getElementById("ua").innerText = ua;
 
-/* DEVICE DETECT */
+/* DEVICE */
 function device(){
-if(/Moto/i.test(ua)) return "Motorola (Moto Device)";
-if(/SM-/i.test(ua)) return "Samsung Galaxy";
+if(/Moto/i.test(ua)) return "Motorola";
+if(/SM-/i.test(ua)) return "Samsung";
 if(/iPhone/i.test(ua)) return "iPhone";
-if(/Android/i.test(ua)) return "Android Device";
+if(/Android/i.test(ua)) return "Android";
 return "Unknown";
 }
 document.getElementById("device").innerText = device();
 
-/* OS */
-document.getElementById("os").innerText = navigator.platform;
+/* SYSTEM */
+document.getElementById("os").innerText =
+navigator.userAgentData?.platform || navigator.platform;
 
 /* SCREEN */
 document.getElementById("screen").innerText =
@@ -170,14 +135,16 @@ screen.width + "x" + screen.height;
 document.getElementById("lang").innerText =
 navigator.language;
 
-/* TIMEZONE */
+/* TZ */
 document.getElementById("tz").innerText =
 Intl.DateTimeFormat().resolvedOptions().timeZone;
 
-/* BATTERY */
+/* BATTERY FIXED */
 async function battery(){
+try{
+
 if(!navigator.getBattery){
-document.getElementById("battery").innerText="N/A";
+document.getElementById("battery").innerText = "N/A";
 return;
 }
 
@@ -185,30 +152,68 @@ const b = await navigator.getBattery();
 
 function update(){
 document.getElementById("battery").innerText =
-Math.round(b.level*100) + "%";
+Math.round(b.level * 100) + "%";
 }
 
 update();
-b.onlevelchange = update;
-b.onchargingchange = update;
+
+b.addEventListener("levelchange", update);
+b.addEventListener("chargingchange", update);
+
+}catch(e){
+document.getElementById("battery").innerText = "N/A";
 }
+}
+
 battery();
 
-/* IP + LOCATION REAL */
-fetch("https://ipapi.co/json/")
-.then(r=>r.json())
-.then(data=>{
+/* MULTI API OSINT (ROBUSTO) */
+async function getIP(){
 
-document.getElementById("ip").innerText = data.ip;
-document.getElementById("loc").innerText =
-data.city + " - " + data.region + " - " + data.country_name;
+const apis = [
+"https://ipwho.is/",
+"https://ipapi.co/json/",
+"https://ipinfo.io/json"
+];
 
-document.getElementById("isp").innerText = data.org;
+for(const url of apis){
+try{
+const r = await fetch(url);
+const d = await r.json();
 
-})
-.catch(()=>{
-document.getElementById("ip").innerText = "Erro API";
-});
+if(d && (d.ip || d.success !== false)){
+return d;
+}
+}catch(e){}
+}
+
+return null;
+}
+
+async function load(){
+
+const d = await getIP();
+
+if(!d){
+ip.innerText="Erro API";
+loc.innerText="N/A";
+isp.innerText="N/A";
+return;
+}
+
+ip.innerText = d.ip || d.query || "N/A";
+
+const city = d.city || "N/A";
+const region = d.region || d.region_name || "N/A";
+const country = d.country_name || d.country || "N/A";
+
+loc.innerText = `${city} - ${region} - ${country}`;
+
+isp.innerText = d.org || d.isp || "N/A";
+
+}
+
+load();
 
 </script>
 
